@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Small Robotic Arm Control</title>
+
+<style>
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 16px;
+  font-family: Arial, sans-serif;
+  background: #101827;
+  color: white;
+}
+
+.container {
+  max-width: 650px;
+  margin: auto;
+}
+
+h1 {
+  text-align: center;
+  font-size: 24px;
+}
+
+.subtitle {
+  text-align: center;
+  color: #aab7ca;
+}
+
+.card {
+  background: #1d293b;
+  border-radius: 14px;
+  padding: 16px;
+  margin: 14px 0;
+}
+
+h2 {
+  font-size: 18px;
+  margin-top: 0;
+}
+
+button {
+  width: 100%;
+  padding: 13px;
+  margin: 5px 0;
+  border: none;
+  border-radius: 9px;
+  background: #2563eb;
+  color: white;
+  font-size: 15px;
+  font-weight: bold;
+}
+
+button:active {
+  opacity: 0.7;
+}
+
+.disconnect {
+  background: #dc2626;
+}
+
+.green {
+  background: #15803d;
+}
+
+.orange {
+  background: #c2410c;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.status {
+  padding: 10px;
+  background: #111c2d;
+  border-radius: 8px;
+  margin: 7px 0;
+}
+
+.value {
+  color: #4ade80;
+  font-weight: bold;
+}
+
+label {
+  display: block;
+  margin-top: 15px;
+}
+
+input[type="range"] {
+  width: 100%;
+}
+
+.small {
+  color: #aab7ca;
+  font-size: 12px;
+}
+
+#log {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+  color: #cbd5e1;
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+<h1>🤖 Robotic Arm Control</h1>
+
+<p class="subtitle">
+ESP32 Bluetooth Low Energy Dashboard
+</p>
+
+<div class="card">
+
+<h2>Bluetooth Connection</h2>
+
+<div class="status">
+Connection:
+<span class="value" id="connection">Disconnected</span>
+</div>
+
+<button onclick="connectBluetooth()" class="green">
+CONNECT TO ROBOT
+</button>
+
+<button onclick="disconnectBluetooth()" class="disconnect">
+DISCONNECT
+</button>
+
+</div>
+
+<div class="card">
+
+<h2>Robot Status</h2>
+
+<div class="status">
+Arm: <span class="value" id="armStatus">Ready</span>
+</div>
+
+<div class="status">
+Camera: <span class="value" id="cameraStatus">Unknown</span>
+</div>
+
+<div class="status">
+HuskyLens: <span class="value" id="huskyStatus">Unknown</span>
+</div>
+
+<div class="status">
+Detected ID: <span class="value" id="detectedID">0</span>
+</div>
+
+<div class="status">
+Waste: <span class="value" id="wasteStatus">None</span>
+</div>
+
+<div class="status">
+Message: <span class="value" id="message">Waiting</span>
+</div>
+
+</div>
+
+<div class="card">
+
+<h2>Robot Commands</h2>
+
+<div class="grid">
+
+<button class="green" onclick="sendCommand('HOME')">
+HOME
+</button>
+
+<button class="disconnect" onclick="sendCommand('STOP')">
+STOP
+</button>
+
+<button onclick="sendCommand('AUTO:ON')">
+AUTO ON
+</button>
+
+<button class="orange" onclick="sendCommand('AUTO:OFF')">
+AUTO OFF
+</button>
+
+<button onclick="sendCommand('CAMERA:ON')">
+CAMERA ON
+</button>
+
+<button class="orange" onclick="sendCommand('CAMERA:OFF')">
+CAMERA OFF
+</button>
+
+<button onclick="sendCommand('AUDIO')">
+TEST AUDIO
+</button>
+
+</div>
+
+</div>
+
+<div class="card">
+
+<h2>Waste Sorting</h2>
+
+<button onclick="sendCommand('SORT:1')">
+PLASTIC - 101°
+</button>
+
+<button onclick="sendCommand('SORT:2')">
+METAL - 124°
+</button>
+
+<button onclick="sendCommand('SORT:3')">
+WET WASTE - 146°
+</button>
+
+<button onclick="sendCommand('SORT:4')">
+DRY WASTE - 169°
+</button>
+
+<p class="small">
+ID 5 is reserved for the automatic audio warning.
+</p>
+
+</div>
+
+<div class="card">
+
+<h2>Manual Servo Control</h2>
+
+<label>
+Base: <span id="baseValue">90</span>°
+</label>
+<input type="range" min="0" max="180" value="90"
+oninput="showValue('baseValue',this.value)"
+onchange="sendCommand('BASE:'+this.value)">
+
+<label>
+Shoulder: <span id="shoulderValue">70</span>°
+</label>
+<input type="range" min="0" max="180" value="70"
+oninput="showValue('shoulderValue',this.value)"
+onchange="sendCommand('SHOULDER:'+this.value)">
+
+<label>
+Elbow: <span id="elbowValue">90</span>°
+</label>
+<input type="range" min="0" max="180" value="90"
+oninput="showValue('elbowValue',this.value)"
+onchange="sendCommand('ELBOW:'+this.value)">
+
+<label>
+Gripper: <span id="gripperValue">50</span>°
+</label>
+<input type="range" min="0" max="180" value="50"
+oninput="showValue('gripperValue',this.value)"
+onchange="sendCommand('GRIPPER:'+this.value)">
+
+</div>
+
+<div class="card">
+
+<h2>Communication Log</h2>
+<div id="log">Waiting for connection...</div>
+
+</div>
+
+</div>
+
+<script>
+
+// ==================================================
+// BLE UUIDS - MUST MATCH ESP32 FIRMWARE
+// ==================================================
+
+const SERVICE_UUID =
+"6e400001-b5a3-f393-e0a9-e50e24dcca9e";
+
+const COMMAND_UUID =
+"6e400002-b5a3-f393-e0a9-e50e24dcca9e";
+
+const STATUS_UUID =
+"6e400003-b5a3-f393-e0a9-e50e24dcca9e";
+
+let bluetoothDevice = null;
+let commandCharacteristic = null;
+let statusCharacteristic = null;
+
+// ==================================================
+// LOG
+// ==================================================
+
+function log(message) {
+  const element = document.getElementById("log");
+
+  element.textContent =
+    new Date().toLocaleTimeString() +
+    " - " + message + "\n" +
+    element.textContent;
+}
+
+// ==================================================
+// CONNECT
+// ==================================================
+
+async function connectBluetooth() {
+
+  if (!navigator.bluetooth) {
+    alert(
+      "Web Bluetooth is not supported in this browser. " +
+      "Try Chrome on Android."
+    );
+    return;
+  }
+
+  try {
+
+    log("Searching for robotic arm...");
+
+    bluetoothDevice =
+      await navigator.bluetooth.requestDevice({
+        filters: [
+          { name: "SMALL ROBOTIC ARM" }
+        ],
+        optionalServices: [SERVICE_UUID]
+      });
+
+    bluetoothDevice.addEventListener(
+      "gattserverdisconnected",
+      disconnected
+    );
+
+    log("Device selected: " + bluetoothDevice.name);
+
+    const server =
+      await bluetoothDevice.gatt.connect();
+
+    const service =
+      await server.getPrimaryService(SERVICE_UUID);
+
+    commandCharacteristic =
+      await service.getCharacteristic(COMMAND_UUID);
+
+    statusCharacteristic =
+      await service.getCharacteristic(STATUS_UUID);
+
+    await statusCharacteristic.startNotifications();
+
+    statusCharacteristic.addEventListener(
+      "characteristicvaluechanged",
+      receiveStatus
+    );
+
+    document.getElementById("connection").textContent =
+      "Connected";
+
+    log("BLE connection successful");
+
+  } catch (error) {
+
+    log("Connection error: " + error.message);
+
+  }
+}
+
+// ==================================================
+// DISCONNECT
+// ==================================================
+
+function disconnectBluetooth() {
+
+  if (bluetoothDevice && bluetoothDevice.gatt.connected) {
+    bluetoothDevice.gatt.disconnect();
+  }
+
+  disconnected();
+}
+
+function disconnected() {
+
+  commandCharacteristic = null;
+  statusCharacteristic = null;
+
+  document.getElementById("connection").textContent =
+    "Disconnected";
+
+  log("Bluetooth disconnected");
+}
+
+// ==================================================
+// SEND COMMAND
+// ==================================================
+
+async function sendCommand(command) {
+
+  if (!commandCharacteristic) {
+    alert("Connect to the robot first.");
+    return;
+  }
+
+  try {
+
+    const bytes =
+      new TextEncoder().encode(command);
+
+    await commandCharacteristic.writeValueWithResponse(bytes);
+
+    log("Sent: " + command);
+
+  } catch (error) {
+
+    log("Command error: " + error.message);
+
+  }
+}
+
+// ==================================================
+// RECEIVE STATUS
+// ==================================================
+
+function receiveStatus(event) {
+
+  const value = event.target.value;
+
+  const decoder = new TextDecoder();
+
+  const message = decoder.decode(value);
+
+  try {
+
+    const data = JSON.parse(message);
+
+    document.getElementById("armStatus").textContent =
+      data.armBusy ? "Working" : "Ready";
+
+    document.getElementById("cameraStatus").textContent =
+      data.cameraEnabled ? "Enabled" : "Disabled";
+
+    document.getElementById("huskyStatus").textContent =
+      data.huskyReady ? "Connected" : "Disconnected";
+
+    document.getElementById("detectedID").textContent =
+      data.detectedID;
+
+    document.getElementById("wasteStatus").textContent =
+      data.waste;
+
+    document.getElementById("message").textContent =
+      data.message;
+
+  } catch (error) {
+
+    log("Status parsing error: " + error.message);
+
+  }
+}
+
+// ==================================================
+// SERVO SLIDER VALUES
+// ==================================================
+
+function showValue(elementID, value) {
+
+  document.getElementById(elementID).textContent = value;
+
+}
+
+</script>
+
+</body>
+</html>
